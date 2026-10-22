@@ -2,8 +2,8 @@
 
 import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ShoppingCart, Truck, CreditCard, ChevronRight, Loader2 } from 'lucide-react';
 
-// 1. Move core logic into an internal component to safely capture useSearchParams during build
 function CheckoutForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,6 +17,7 @@ function CheckoutForm() {
   const [fullName, setFullName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('first_bank'); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculations
   const deliveryFee = 1500; 
@@ -36,66 +37,106 @@ function CheckoutForm() {
       return;
     }
 
+    setIsSubmitting(true);
     // Redirect straight to the custom payment screen, passing the total amount via URL
-    router.push(`/payment-confirmation?amount=${totalAmount}`);
+    setTimeout(() => {
+      router.push(`/payment-confirmation?amount=${totalAmount}`);
+    }, 800);
   };
 
   return (
-    // Fixed container to fit smoothly on screens of any width
-    <div style={{ maxWidth: '1100px', margin: '20px auto', padding: '0 16px', fontFamily: 'system-ui, sans-serif', color: '#111827'}}>
-      <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>Checkout</h1>
+    <div className="max-w-6xl mx-auto px-4 py-6 md:py-10 text-slate-900 font-sans">
+      {/* Title Header */}
+      <div className="flex items-center gap-2.5 mb-8">
+        <div className="p-2 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
+          <ShoppingCart size={22} />
+        </div>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Checkout Gate</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Finalise transactional variables and fulfillment coordinates.</p>
+        </div>
+      </div>
       
-      {/* 📱 FLUID DESIGN LAYOUT: Flexbox with dynamic wrapping drops the order summary column cleanly underneath on mobile screens */}
-      <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap-reverse', gap: '24px', alignItems: 'flex-end' }}>
+      {/* Responsive layout matrix: stack columns on mobile, row on large screens */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         
-        {/* Left Area: Forms (takes full width on mobile, scales on desktop) */}
-        <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '24px', minWidth: '280px' }}>
+        {/* Left Area: Forms */}
+        <div className="w-full lg:flex-1 flex flex-col gap-6">
           
           {/* Section 1: Customer Details Form */}
-          <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 4px 0', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>Delivery Information</h2>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 md:p-6 shadow-sm flex flex-col gap-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 pb-3 border-b border-slate-100 flex items-center gap-2">
+              <Truck size={16} className="text-slate-500" /> Delivery Information
+            </h2>
             
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>Full Name</label>
-              <input type="text" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '6px', border: '1px solid #d1d5db', boxSizing: 'border-box', fontSize: '14px' }} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name *</label>
+                <input 
+                  type="text" 
+                  placeholder="John Doe" 
+                  value={fullName} 
+                  onChange={(e) => setFullName(e.target.value)} 
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50/50 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
+                />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address *</label>
+                <input 
+                  type="email" 
+                  placeholder="johndoe@example.com" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50/50 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
+                />
+              </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>Email Address</label>
-              <input type="email" placeholder="johndoe@example.com" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '6px', border: '1px solid #d1d5db', boxSizing: 'border-box', fontSize: '14px' }} />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>Delivery Address</label>
-              <textarea rows="3" placeholder="House number, Street name, City, State" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '6px', border: '1px solid #d1d5db', boxSizing: 'border-box', fontSize: '14px', fontFamily: 'inherit' }} />
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Delivery Address *</label>
+              <textarea 
+                rows="3" 
+                placeholder="House number, Street name, City, State" 
+                value={deliveryAddress} 
+                onChange={(e) => setDeliveryAddress(e.target.value)} 
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50/50 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none"
+              />
             </div>
           </div>
 
-          {/* Section 2: Bank Lines Selection */}
-          <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 12px 0', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>Choose Bank / Payment Option</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Section 2: Bank Selection */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 md:p-6 shadow-sm">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 pb-3 mb-4 border-b border-slate-100 flex items-center gap-2">
+              <CreditCard size={16} className="text-slate-500" /> Choose Settlement Option
+            </h2>
+            
+            <div className="flex flex-col gap-3">
               {paymentMethodsList.map((method) => {
                 const isSelected = selectedMethod === method.id;
                 return (
                   <div 
                     key={method.id}
                     onClick={() => setSelectedMethod(method.id)}
-                    style={{
-                      padding: '14px',
-                      borderRadius: '8px',
-                      border: isSelected ? '2px solid #2563eb' : '1px solid #d1d5db',
-                      backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '12px'
-                    }}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                      isSelected 
+                        ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
+                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                    }`}
                   >
-                    <input type="radio" checked={isSelected} readOnly style={{ marginTop: '4px' }} />
+                    <input 
+                      type="radio" 
+                      checked={isSelected} 
+                      readOnly 
+                      className="mt-1 h-4 w-4 accent-blue-600 shrink-0" 
+                    />
                     <div>
-                      <p style={{ margin: 0, fontWeight: '600', fontSize: '14px', color: isSelected ? '#1e40af' : '#111827' }}>{method.name}</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>{method.description}</p>
+                      <p className={`font-semibold text-sm transition-colors ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
+                        {method.name}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                        {method.description}
+                      </p>
                     </div>
                   </div>
                 );
@@ -105,30 +146,44 @@ function CheckoutForm() {
         </div>
 
         {/* Right Area: Order Summary Calculations Box */}
-        <div style={{ flex: '1 1 350px', minWidth: '280px' }}>
-          <div style={{ backgroundColor: '#f9fafb', padding: '20px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>Order Summary</h2>
+        <div className="w-full lg:w-[380px] shrink-0 sticky lg:top-24">
+          <div className="bg-slate-900 text-white p-5 md:p-6 rounded-xl border border-slate-800 shadow-lg">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 pb-3 mb-4 border-b border-slate-800">
+              Order Summary
+            </h2>
             
-            <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', marginBottom: '12px' }}>
-              <p style={{ fontWeight: '600', margin: '0 0 4px 0', fontSize: '14px' }}>{drugName}</p>
-              <p style={{ margin: 0, fontSize: '13px', color: '#4b5563' }}>₦{drugPrice.toLocaleString()}</p>
+            <div className="pb-4 mb-4 border-b border-slate-800 flex justify-between items-start gap-2">
+              <div>
+                <p className="font-semibold text-sm leading-snug">{drugName}</p>
+                <p className="text-xs text-slate-400 mt-1">Base Cost Asset</p>
+              </div>
+              <p className="font-mono text-sm font-bold text-slate-200">₦{drugPrice.toLocaleString()}</p>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '13px', color: '#4b5563' }}>
-              <span>Delivery Fee</span>
-              <span>₦{deliveryFee.toLocaleString()}</span>
+            <div className="flex justify-between mb-4 text-xs text-slate-400">
+              <span>Delivery Logistics Fee</span>
+              <span className="font-mono text-slate-300">₦{deliveryFee.toLocaleString()}</span>
             </div>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>
-              <span>Total Cost</span>
-              <span style={{ color: '#2563eb' }}>₦{totalAmount.toLocaleString()}</span>
+            <div className="flex justify-between items-baseline mb-6 pt-2 border-t border-dashed border-slate-800">
+              <span className="text-sm font-medium text-slate-300">Total Settlement</span>
+              <span className="text-xl font-mono font-bold text-blue-400">₦{totalAmount.toLocaleString()}</span>
             </div>
 
             <button
               onClick={handlePaymentProcessing}
-              style={{ width: '100%', backgroundColor: '#2563eb', color: '#ffffff', padding: '12px', fontSize: '15px', fontWeight: '600', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 text-white py-3 px-4 text-sm font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2 group"
             >
-              Authorize Transaction
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Authorizing Gateway...
+                </>
+              ) : (
+                <>
+                  Authorize Transaction <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -138,10 +193,14 @@ function CheckoutForm() {
   );
 }
 
-// 2. Global export container wrapped in Suspense to ensure Vercel static optimization compiles seamlessly
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100 screen', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#6b7280' }}>Mounting secure checkout module...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-400 text-xs font-medium gap-2">
+        <Loader2 className="animate-spin text-blue-600" size={24} />
+        Mounting secure checkout module...
+      </div>
+    }>
       <CheckoutForm />
     </Suspense>
   );
