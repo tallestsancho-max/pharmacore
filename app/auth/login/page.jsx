@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -13,7 +14,8 @@ import {
   LogIn
 } from "lucide-react";
 
-export default function LoginPage() {
+// 1. Core structural form component containing your interactive code logic
+function LoginForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -34,10 +36,7 @@ export default function LoginPage() {
     setErrorMessage("");
 
     try {
-      // Authenticate login attempt using Firebase Auth
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-
-      // Normal website routing redirect straight to dashboard
       router.push("/dashboard");
     } catch (error) {
       console.error("Login session error:", error);
@@ -143,5 +142,14 @@ export default function LoginPage() {
 
       </div>
     </div>
+  );
+}
+
+// 2. Clear default wrapper shell that handles boundaries gracefully during production bundling
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-xs">Syncing application gateway routing...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
