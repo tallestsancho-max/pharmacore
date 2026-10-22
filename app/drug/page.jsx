@@ -14,6 +14,7 @@ import {
   ShieldAlert
 } from "lucide-react";
 
+// 1. Core form content logic goes into this separate inner component
 function AddDrugContent() {
   const router = useRouter();
   const { profile, loading } = useAuth();
@@ -51,7 +52,6 @@ function AddDrugContent() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // CORE BACKEND BLOCK: Writing data into your "drugs" Firestore collection
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -73,13 +73,11 @@ function AddDrugContent() {
         lastUpdated: new Date().toISOString().split('T')[0]
       };
 
-      // Connect to Firestore
       const docRef = await addDoc(collection(db, "drugs"), drugPayload);
       console.log("Document successfully written with ID: ", docRef.id);
 
       setMessage({ type: "success", text: "Medication successfully logged into database inventory!" });
       
-      // Redirect
       setTimeout(() => {
         router.push("/drugs");
       }, 1500);
@@ -87,11 +85,10 @@ function AddDrugContent() {
     } catch (error) {
       console.error("Firestore Write Error Details: ", error);
       setMessage({ type: "error", text: `Database write aborted: ${error.message || error.code}` });
-      setIsSubmitting(false); // Unfreezes the button immediately
+      setIsSubmitting(false);
     }
   };
 
-  // 1. Show a loader while authentication profile layers initialize
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -101,7 +98,6 @@ function AddDrugContent() {
     );
   }
 
-  // 2. Intercept and completely bar students from seeing or interacting with the form
   if (profile?.role === "Student Operations") {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -125,11 +121,8 @@ function AddDrugContent() {
     );
   }
 
-  // 3. Render page cleanly if user is an authorized Staff member or Admin
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-6">
-      
-      {/* Top Header Navigation */}
       <button 
         type="button"
         onClick={() => router.push("/drugs")}
@@ -138,7 +131,6 @@ function AddDrugContent() {
         <ArrowLeft size={16} /> Back to Drug Management
       </button>
 
-      {/* Heading Title */}
       <div className="flex items-center gap-3">
         <div className="p-2 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl">
           <PackagePlus size={24} />
@@ -149,7 +141,6 @@ function AddDrugContent() {
         </div>
       </div>
 
-      {/* Dynamic Feedback Status Banner */}
       {message.text && (
         <div className={`p-4 rounded-xl flex items-start gap-3 border text-sm font-medium ${
           message.type === "success" 
@@ -161,10 +152,7 @@ function AddDrugContent() {
         </div>
       )}
 
-      {/* Main Input Form */}
       <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
-        
-        {/* Section 1: Core Identifiers */}
         <div>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Medication Profiles</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,7 +191,6 @@ function AddDrugContent() {
           </div>
         </div>
 
-        {/* Section 2: Classification Formats */}
         <div className="border-t border-slate-100 pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -221,7 +208,6 @@ function AddDrugContent() {
           </div>
         </div>
 
-        {/* Section 3: Volumetric Metrics Counters */}
         <div className="border-t border-slate-100 pt-6">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Inventory Safeguards</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -234,53 +220,23 @@ function AddDrugContent() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Minimum Stock Level</label>
-              <input
-                type="number" min="0" name="minStock" value={formData.minStock} onChange={handleChange}
-                placeholder="10"
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Low Stock Alert Level *</label>
+              <input 
+                type="number" required min="1" name="minStockLevel" value={formData.minStockLevel} onChange={handleChange}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Expiry Date</label>
-              <input
-                type="date" name="expiryDate" value={formData.expiryDate} onChange={handleChange}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                        <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Batch Expiry Date *</label>
+              <input 
+                type="date" required name="expiryDate" value={formData.expiryDate} onChange={handleChange}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-500 focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
         </div>
-        {/* Section 4: Supplier & Storage */}
-        <div className="border-t border-slate-100 pt-6">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Supplier & Storage</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Supplier Name</label>
-              <input
-                type="text" name="supplierName" value={formData.supplierName} onChange={handleChange}
-                placeholder="Supplier Name"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Storage Location</label>
-              <input
-                type="text" name="storageLocation" value={formData.storageLocation} onChange={handleChange}
-                placeholder="Storage Location"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
         </div>
-        {/* Submit Button */}
-        <div className="border-t border-slate-100 pt-6">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition"
-          >
-            Add Drug
-          </button>
+        </form>
         </div>
-</form>
-</div>
   )};
