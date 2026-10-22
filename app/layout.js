@@ -1,4 +1,5 @@
 // app/layout.js
+import { Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -17,13 +18,18 @@ export default function RootLayout({ children }) {
         {/* 1. START PROVIDER FIRST */}
         <AuthProvider>
           
-          {/* 2. NAVBAR MUST SIT INSIDE HERE TO SEE THE LOGIN STATE */}
-          <Navbar />
-          
-          {/* Dynamic page content */}
-          <main className="flex-1 w-full">
-            {children}
-          </main>
+          {/* 2. Wrap the dynamic client UI components in Suspense for static build safety */}
+          <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-xs">Initializing gateway layout...</div>}>
+            
+            {/* NAVBAR MUST SIT INSIDE HERE TO SEE THE LOGIN STATE */}
+            <Navbar />
+            
+            {/* Dynamic page content */}
+            <main className="flex-1 w-full">
+              {children}
+            </main>
+            
+          </Suspense>
           
           {/* Static Base Footer */}
           <Footer />
