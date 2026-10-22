@@ -8,7 +8,7 @@ import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase"; 
 import { Pill, AlertCircle, User, IdCard, ShieldCheck, Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 
-// 1. Move core page logic inside an inner form component
+// 1. Move registration form layout details inside an inner component structure
 function RegisterForm() {
   const router = useRouter();
   
@@ -71,6 +71,7 @@ function RegisterForm() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 sm:p-8">
         
+        {/* Brand Banner */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
             <Pill size={26} />
@@ -179,10 +180,10 @@ function RegisterForm() {
   );
 }
 
-// 2. Export main default wrapper wrapped in Suspense for static NextJS compilation
+// 2. Main default wrapper providing the required compilation boundary shell
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-xs">Loading structure...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-xs">Loading form configurations...</div>}>
       <RegisterForm />
     </Suspense>
   );
