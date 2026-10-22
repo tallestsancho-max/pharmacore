@@ -35,7 +35,7 @@ export default function CoreDashboardPage() {
   const accountIdentifier = profile?.fullName || user.email.split('@')[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-slate-800">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 max-w-7xl mx-auto space-y-6 text-slate-800 transition-all duration-300 ease-in-out lg:pt-8 sm:pt-6">
       
       {/* SECTION 1: SYSTEM WELCOME BANNER */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
