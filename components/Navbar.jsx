@@ -57,13 +57,24 @@ export default function Navbar() {
     { label: "Checkout", href: "/checkout" },
   ];
 
+  // 🛡️ DYNAMIC ROLE FILTERING: Restrict students from seeing database-modifying links
+  const activeLinks = baseLinks.filter((link) => {
+    const isStudent = profile?.role === "Student Operations";
+    if (isStudent) {
+      // List paths that students are explicitly blocked from seeing
+      const restrictedPaths = ["/drug", "/restock", "/reports"];
+      return !restrictedPaths.includes(link.href);
+    }
+    return true; // Staff Pharmacists and Admins see everything
+  });
+
   // Resolve user details layout profiles
   const userDisplayName = profile?.fullName || user?.email?.split('@')[0] || "Operator";
   const userIdentifier = profile?.fullName || user?.email || "";
   const initialLetter = userIdentifier.charAt(0).toUpperCase();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 flex items-center shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 flex items-center shadow-sm sm:px-4 lg:px-8 transition-all duration-300 ease-in-out">
       <div className="max-w-7xl mx-auto px-4 w-full flex justify-between items-center relative">
         
         {/* Brand Logo */}
@@ -74,7 +85,8 @@ export default function Navbar() {
 
         {/* --- DESKTOP VIEW CONTAINER (Hidden on Mobile screens below 1024px) --- */}
         <div className="hidden lg:flex items-center gap-2">
-          {baseLinks.map((link) => (
+          {/* Looping through filtered activeLinks instead of original baseLinks */}
+          {activeLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -184,55 +196,46 @@ export default function Navbar() {
                 </div>
               )}
 
-              {/* Stacked Navigation Mapping Array */}
-              {baseLinks.map((link) => (
+              {/* Responsive Stacked Navigation Mapping Array using activeLinks */}
+              {activeLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`block px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                     pathname === link.href
                       ? "bg-blue-50 text-blue-600"
-                      : "text-slate-600 hover:bg-slate-50"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   }`}
                 >
                   {link.label}
                 </Link>
               ))}
 
-              <div className="border-t border-slate-100 my-1 pt-1.5 flex flex-col gap-1">
-                {user ? (
-                  <>
-                    <button 
-                      onClick={() => { setMobileMenuOpen(false); router.push("/dashboard"); }}
-                      className="w-full text-left font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 px-2.5 py-2 rounded-lg transition"
-                    >
-                      View Full Profile
-                    </button>
-                    <button 
-                      onClick={() => { setMobileMenuOpen(false); router.push("/auth/login"); }}
-                      className="w-full text-left font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 px-2.5 py-2 rounded-lg transition border-t border-dashed border-slate-100 mt-0.5 pt-2"
-                    >
-                      Switch Operational Account
-                    </button>
-                    <button 
-                      onClick={handleLogOut}
-                      className="w-full text-left font-semibold text-rose-600 hover:bg-rose-50 px-2.5 py-2 rounded-lg transition flex items-center gap-1.5 mt-1"
-                    >
-                      <LogOut size={13} /> Secure Log Out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/auth/login" className="px-3 py-2 text-slate-600 text-sm font-semibold hover:text-slate-900">Login</Link>
-                    <Link href="/auth/signin" className="px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition">Sign Up</Link>
-                  </>
-                )}
-              </div>
+              {user ? (
+                <>
+                  <button 
+                    onClick={() => { setMobileMenuOpen(false); router.push("/dashboard"); }}
+                    className="w-full text-left font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-50 px-3 py-2 rounded-lg transition mt-1"
+                  >
+                    View Full Profile
+                  </button>
+                  <button 
+                    onClick={handleLogOut}
+                    className="w-full text-left font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-lg transition flex items-center gap-1.5 mt-1"
+                  >
+                    <LogOut size={13} /> Secure Log Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/login" className="block px-3 py-2 text-slate-600 text-sm font-semibold hover:text-slate-900">Login</Link>
+                  <Link href="/auth/signin" className="block px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition">Sign Up</Link>
+                </>
+              )}
             </div>
           )}
         </div>
-
       </div>
     </nav>
   );

@@ -1,19 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase"; 
 import { collection, addDoc } from "firebase/firestore";
+import { useAuth } from "@/components/AuthProvider";
 import { 
   PackagePlus, 
   AlertCircle, 
   ArrowLeft, 
   Loader2, 
   Save,
-  CheckCircle2
+  CheckCircle2,
+  ShieldAlert
 } from "lucide-react";
 
-export default function AddDrugPage() {
+function AddDrugContent() {
   const router = useRouter();
+  const { profile, loading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
@@ -49,7 +52,7 @@ export default function AddDrugPage() {
   };
 
   // CORE BACKEND BLOCK: Writing data into your "drugs" Firestore collection
-      const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage({ type: "", text: "" });
@@ -83,14 +86,46 @@ export default function AddDrugPage() {
 
     } catch (error) {
       console.error("Firestore Write Error Details: ", error);
-      // FIX: This forces the alert to print on your screen banner if it crashes
       setMessage({ type: "error", text: `Database write aborted: ${error.message || error.code}` });
       setIsSubmitting(false); // Unfreezes the button immediately
     }
   };
 
+  // 1. Show a loader while authentication profile layers initialize
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <Loader2 className="animate-spin text-blue-600 mb-2" size={28} />
+        <p className="text-xs text-slate-500 font-medium">Validating gateway credentials...</p>
+      </div>
+    );
+  }
 
+  // 2. Intercept and completely bar students from seeing or interacting with the form
+  if (profile?.role === "Student Operations") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-md">
+          <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center mx-auto mb-3 border border-rose-100">
+            <ShieldAlert size={24} />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900">Access Denied</h2>
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            Your account profile is assigned to <strong>Student Operations</strong>. You do not possess the mandatory permissions required to log new medical inventory items.
+          </p>
+          <button 
+            type="button"
+            onClick={() => router.push("/drugs")}
+            className="mt-5 w-full bg-slate-800 hover:bg-slate-900 text-white py-2 rounded-lg text-xs font-semibold shadow-sm transition-all"
+          >
+            Return to Registry Management
+          </button>
+        </div>
+      </div>
+    );
+  }
 
+  // 3. Render page cleanly if user is an authorized Staff member or Admin
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-6">
       
@@ -127,7 +162,7 @@ export default function AddDrugPage() {
       )}
 
       {/* Main Input Form */}
-<form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
         
         {/* Section 1: Core Identifiers */}
         <div>
@@ -199,74 +234,53 @@ export default function AddDrugPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Low Stock Alert Level *</label>
-              <input 
-                type="number" required min="1" name="minStockLevel" value={formData.minStockLevel} onChange={handleChange}
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Minimum Stock Level</label>
+              <input
+                type="number" min="0" name="minStock" value={formData.minStock} onChange={handleChange}
+                placeholder="10"
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Batch Expiry Date *</label>
-              <input 
-                type="date" required name="expiryDate" value={formData.expiryDate} onChange={handleChange}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-500 focus:outline-none focus:border-blue-500"
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Expiry Date</label>
+              <input
+                type="date" name="expiryDate" value={formData.expiryDate} onChange={handleChange}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
         </div>
-
-        {/* Section 4: Logistical Sourcing */}
+        {/* Section 4: Supplier & Storage */}
         <div className="border-t border-slate-100 pt-6">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Supplier & Storage</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Supplier / Distributor</label>
-              <input 
-                type="text" name="supplier" value={formData.supplier} onChange={handleChange}
-                placeholder="e.g., Medline Industries"
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Supplier Name</label>
+              <input
+                type="text" name="supplierName" value={formData.supplierName} onChange={handleChange}
+                placeholder="Supplier Name"
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Storage Location Shelf Code</label>
-              <input 
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Storage Location</label>
+              <input
                 type="text" name="storageLocation" value={formData.storageLocation} onChange={handleChange}
-                placeholder="e.g., Shelf B-Row 4"
+                placeholder="Storage Location"
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
         </div>
-
-        {/* Action Controls Footer Button Row with Redirection */}
-        <div className="border-t border-slate-100 pt-4 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/drugs")}
-            className="border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
+        {/* Submit Button */}
+        <div className="border-t border-slate-100 pt-6">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-all flex items-center gap-2 shadow-sm"
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition"
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Saving to Cloud...
-              </>
-            ) : (
-              <>
-                <Save size={16} />
-                Save Medication
-              </>
-            )}
+            Add Drug
           </button>
         </div>
-
-      </form>
-    </div>
-  );
-}
+</form>
+</div>
+  )};
