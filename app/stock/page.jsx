@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Boxes, 
   Search, 
@@ -8,23 +8,47 @@ import {
   SlidersHorizontal, 
   AlertCircle,
   PackageCheck,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
+import { db } from "@/lib/firebase"; // Ensure this matches your real firebase config import path
+import { collection, onSnapshot, query } from "firebase/firestore";
 
-// Mock broad inventory stock levels for the clinic setup
-const initialStock = [
-  { id: "s1", name: "Amoxil Capsules", sku: "AMX-500", quantity: 45, minStock: 30, unit: "packs", lastUpdated: "2026-10-18", status: "In Stock" },
-  { id: "s2", name: "Paracetamol 500mg", sku: "PCM-500", quantity: 350, minStock: 100, unit: "tabs", lastUpdated: "2026-10-20", status: "Good" },
-  { id: "s3", name: "Claritin Syrup", sku: "LOR-10", quantity: 12, minStock: 25, unit: "bottles", lastUpdated: "2026-10-15", status: "Low Stock" },
-  { id: "s4", name: "Brufen Forte", sku: "IBU-400", quantity: 0, minStock: 40, unit: "tabs", lastUpdated: "2026-10-02", status: "Out of Stock" },
-  { id: "s5", name: "Ventolin Inhaler", sku: "VEN-012", quantity: 15, minStock: 10, unit: "units", lastUpdated: "2026-10-19", status: "In Stock" },
-];
-
-export default function StockManagementPage({ activeTab }) {
-  const [stockList, setStockList] = useState(initialStock);
+export default function StockManagementPage() {
+  const [stockList, setStockList] = useState([]);
+  const [loading, setLoading] = useState(true); // Loading tracker state for safety
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+
+  // CONNECT TO FIREBASE FOR LIVE UPDATES
+  useEffect(() => {
+    const q = query(collection(db, "drugs"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const drugsArray = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        drugsArray.push({
+          id: doc.id,
+          // Safely handles fallback matching whatever naming variant your database maps to
+          name: data.name || data.drugName || "Unnamed Drug",
+          sku: data.sku || data.batchNo || "NO-SKU",
+          quantity: parseInt(data.quantity || data.stock || 0, 10),
+          minStock: parseInt(data.minStock || 25, 10), // Fallback min threshold default
+          unit: data.unit || "units",
+          lastUpdated: data.dateLogged || data.lastUpdated || "Recent",
+        });
+      });
+      setStockList(drugsArray);
+      setLoading(false);
+    }, (error) => {
+      console.error("Failed to stream stock metrics from Firestore:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filteredStock = stockList.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -43,6 +67,15 @@ export default function StockManagementPage({ activeTab }) {
   const outOfStockItems = stockList.filter(i => i.quantity === 0).length;
   const lowStockItems = stockList.filter(i => i.quantity > 0 && i.quantity <= i.minStock).length;
 
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-2 text-slate-500 font-medium">
+        <Loader2 className="animate-spin text-slate-600" size={28} />
+        <span>Syncing Warehouse Ingestions...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
       
@@ -56,13 +89,13 @@ export default function StockManagementPage({ activeTab }) {
         </div>
         <div className="flex gap-2 self-stretch md:self-auto">
           <Link href="/restock" className="flex-1 md:flex-initial">
-  <button
-    type="button"
-    className="w-full bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
-  >
-    <RefreshCw size={15} /> Quick Restock
-  </button>
-</Link>
+            <button
+              type="button"
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <RefreshCw size={15} /> Quick Restock
+            </button>
+          </Link>
         </div>
       </div>
 
@@ -177,13 +210,12 @@ export default function StockManagementPage({ activeTab }) {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => alert(`Adjusting stock levels manually for: ${item.name}`)}
-                            className="text-xs font-semibold text-slate-600 hover:text-blue-600 bg-slate-50 border border-slate-200 hover:border-blue-200 px-2.5 py-1 rounded transition-colors"
-                          >
-                            Reconcile
-                          </button>
+                          <Link href={`/restock?drugId=${item.id}`} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+                            <PackageCheck size={14} /> Restock
+                          </Link>
+                          <Link href={`/adjust-stock?drugId=${item.id}`} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+                            <SlidersHorizontal size={14} /> Adjust
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -191,14 +223,16 @@ export default function StockManagementPage({ activeTab }) {
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400 text-sm font-medium">
-                    No matching item positions observed under this log filtering combination.
+                  <td colSpan="6" className="px-6 py-8 text-center text-sm text-slate-500">
+                    No stock items match the current filter criteria.
                   </td>
                 </tr>
               )}
             </tbody>
-            </table>
-            </div>
-            </div>
-            </div>
-  )}
+          </table>
+        </div>
+      </div>
+
+    </div>
+  );
+}

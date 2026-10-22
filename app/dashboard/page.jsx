@@ -9,8 +9,6 @@ import {
   ExternalLink, BarChart3, PackagePlus, Users, Settings2
 } from "lucide-react";
 
-// Inside app/dashboard/page.jsx
-
 export default function CoreDashboardPage() {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
@@ -111,7 +109,8 @@ export default function CoreDashboardPage() {
               <div>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase leading-none">Session Activation</p>
                 <p className="text-slate-500 text-[11px] mt-1">
-                  {user.metadata.lastSignInTime ? new Date(user.metadata.lastSignInTime).toLocaleString() : "Active Now"}
+                  {/* FIXED: Optional chaining (?.) added below to safely wait for firebase properties */}
+                  {user?.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime).toLocaleString() : "Active Now"}
                 </p>
               </div>
             </div>
@@ -142,12 +141,18 @@ export default function CoreDashboardPage() {
                 </div>
               </button>
 
-              <button className="group border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 text-left p-4 rounded-xl transition flex flex-col justify-between">
+              {/* FIXED: Added working navigation hook link to direct users to your restock page schema */}
+              <button 
+                onClick={() => router.push("/restock")}
+                className="group border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/30 text-left p-4 rounded-xl transition flex flex-col justify-between"
+              >
                 <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center transition group-hover:bg-emerald-600 group-hover:text-white mb-4">
                   <PackagePlus size={16} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Procure Stock Ledger</h4>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1">
+                    Procure Stock Ledger <ArrowRight className="opacity-0 group-hover:opacity-100 transition translate-x-[-4px] group-hover:translate-x-0" size={14} />
+                  </h4>
                   <p className="text-[11px] text-slate-500 mt-1">Provision batch volumes, log manufacturing inputs, and trace transit operations.</p>
                 </div>
               </button>
@@ -165,7 +170,7 @@ export default function CoreDashboardPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 border border-slate-100 rounded-xl flex items-center gap-3">
+                <div className="p-3 border border-slate-100 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-100 transition" onClick={() => router.push("/dashboard/drugs")}>
                   <BarChart3 className="text-blue-500" size={18} />
                   <span className="text-xs font-semibold text-slate-700">Browse Global Formulary</span>
                 </div>

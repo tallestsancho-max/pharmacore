@@ -1,55 +1,66 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; // 1. Import Next.js routing handle
+import { useRouter } from "next/navigation"; 
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, addDoc, doc, updateDoc, increment, getDocs, where } from "firebase/firestore";
+import { collection, onSnapshot, query, addDoc, doc, updateDoc, increment } from "firebase/firestore";
 import { 
-  PackagePlus, 
-  Search, 
-  Truck, 
-  History, 
-  Calendar,
-  AlertCircle,
-  Plus,
-  Loader2,
-  CheckCircle2
+  PackagePlus, Search, Truck, History, AlertCircle, Plus, Loader2, CheckCircle2
 } from "lucide-react";
 
 export default function RestockPage() {
-  const router = useRouter(); // 2. Initialize the router utility navigation hook
+  const router = useRouter(); 
   const [logs, setLogs] = useState([]);
+  const [masterDrugs, setMasterDrugs] = useState([]); // Holds real drugs fetched from your DB
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  // Form handling state for fresh delivery orders
   const [formData, setFormData] = useState({
-    drugName: "",
+    drugId: "",       // Tracks selected document ID reference
+    selectedName: "", // Tracks selected readable name text
     batchNo: "",
     quantity: "",
     supplier: "",
     cost: "",
   });
 
-  // Sync data in real time from your live Firestore restock_logs collection
+  // 1. Fetch both real-time logs AND your actual master drugs list simultaneously
   useEffect(() => {
-    const q = query(collection(db, "restock_logs"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // Sync logs
+    const qLogs = query(collection(db, "restock_logs"));
+    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
       const items = [];
       snapshot.forEach((doc) => {
         items.push({ id: doc.id, ...doc.data() });
       });
-      // Order by date logged (newest first)
       items.sort((a, b) => new Date(b.dateLogged) - new Date(a.dateLogged));
       setLogs(items);
+    });
+
+    // Sync active master drugs for dropdown mapping
+    const qDrugs = query(collection(db, "drugs"));
+    const unsubscribeDrugs = onSnapshot(qDrugs, (snapshot) => {
+      const items = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        // Dynamically handles whether your DB fields are named 'name' or 'drugName'
+        items.push({ 
+          id: doc.id, 
+          displayName: data.name || data.drugName || "Unnamed Drug" 
+        });
+      });
+      setMasterDrugs(items);
       setLoading(false);
     }, (error) => {
-      console.error("Failed to fetch restock logs:", error);
+      console.error("Database sync failed:", error);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeLogs();
+      unsubscribeDrugs();
+    };
   }, []);
 
   const handleInputChange = (e) => {
@@ -57,73 +68,70 @@ export default function RestockPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Handles dropdown select changes safely
+  const handleDropdownChange = (e) => {
+    const selectedId = e.target.value;
+    const matchedDrug = masterDrugs.find(d => d.id === selectedId);
+    setFormData(prev => ({
+      ...prev,
+      drugId: selectedId,
+      selectedName: matchedDrug ? matchedDrug.displayName : ""
+    }));
+  };
+
   const handleSubmitBatch = async (e) => {
     e.preventDefault();
+    if (!formData.drugId) {
+      setMessage({ type: "error", text: "Please select an existing medication from your dashboard catalog." });
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage({ type: "", text: "" });
 
     try {
       const inputQuantity = parseInt(formData.quantity, 10) || 0;
-      const cleanDrugName = formData.drugName.trim();
 
       const newEntry = {
-        drugName: cleanDrugName,
+        drugName: formData.selectedName,
         batchNo: formData.batchNo.trim(),
         quantity: inputQuantity,
         supplier: formData.supplier.trim(),
         cost: parseFloat(formData.cost) || 0,
-        dateLogged: new Date().toISOString().split('T')[0], // 2026-10-21
+        dateLogged: new Date().toISOString().split('T')[0], 
         status: "Received"
       };
 
-      // ACTION 1: Commit the transaction entry directly into historical restock logs
+      // ACTION 1: Record to transaction timeline history log
       await addDoc(collection(db, "restock_logs"), newEntry);
 
-      // ACTION 2: Find and increment or dynamically create the matching entry inside the active 'drugs' collection
-      const drugsRef = collection(db, "drugs");
-      const q = query(drugsRef, where("name", "==", cleanDrugName));
-      const querySnapshot = await getDocs(q);
+      // ACTION 2: Directly target the exact existing document ID in your inventory
+      const drugDocRef = doc(db, "drugs", formData.drugId);
+      
+      // Safety update package: sets both potential keys ('stock' and 'quantity') 
+      // so it updates your page no matter what variable spelling your stock layout uses!
+      await updateDoc(drugDocRef, {
+        stock: increment(inputQuantity),
+        quantity: increment(inputQuantity)
+      });
 
-      if (!querySnapshot.empty) {
-        // If a drug item matching this name already exists, update its existing stock count atomically
-        const existingDrugDoc = querySnapshot.docs[0];
-        const drugDocRef = doc(db, "drugs", existingDrugDoc.id);
-        
-        await updateDoc(drugDocRef, {
-          stock: increment(inputQuantity)
-        });
-      } else {
-        // Optional Fallback: If it's a completely new drug variant, spin it up natively inside the database
-        await addDoc(collection(db, "drugs"), {
-          name: cleanDrugName,
-          category: "General Pharmacy", // Assign a default placeholder fallback category
-          price: Math.floor(Math.random() * 2000) + 500, // Assigns a random fallback price if creating fresh
-          stock: inputQuantity
-        });
-      }
+      setMessage({ type: "success", text: `Batch ${formData.batchNo} verified and synced with live storage inventory metrics.` });
+      setFormData({ drugId: "", selectedName: "", batchNo: "", quantity: "", supplier: "", cost: "" });
 
-      setMessage({ type: "success", text: `Batch ${formData.batchNo} verified and added to live storage metrics.` });
-      setFormData({ drugName: "", batchNo: "", quantity: "", supplier: "", cost: "" });
-
-      // ACTION 3: Redirect the window immediately over to the active drugs marketplace dashboard path 
       alert("Inventory successfully updated! Redirecting to dashboard...");
-      router.push('/dashboard/drugs');
+      router.push('/stock'); // Redirects to your stock overview page
 
     } catch (error) {
-      console.error("Restock log operation failed entirely:", error);
-      setMessage({ type: "error", text: "Failed to save entry. Check database rules." });
+      console.error("Restock failed entirely:", error);
+      setMessage({ type: "error", text: `Failed to save entry: ${error.message}` });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const filteredLogs = logs.filter(log => {
-    const drugName = log.drugName || "";
-    const batchNo = log.batchNo || "";
-    const supplier = log.supplier || "";
-    return drugName.toLowerCase().includes(searchQuery.toLowerCase() || "") ||
-           batchNo.toLowerCase().includes(searchQuery.toLowerCase() || "") ||
-           supplier.toLowerCase().includes(searchQuery.toLowerCase() || "");
+    const nameText = log.drugName || "";
+    return nameText.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   if (loading) {
@@ -137,8 +145,6 @@ export default function RestockPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
-      
-      {/* Title Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
           <PackagePlus className="text-slate-700" size={24} /> Restock & Batch Ingestion
@@ -147,8 +153,6 @@ export default function RestockPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Left Side: Intake Registration Form */}
         <div className="lg:col-span-5">
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
@@ -166,12 +170,19 @@ export default function RestockPage() {
 
             <form onSubmit={handleSubmitBatch} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Medication Name *</label>
-                <input 
-                  type="text" required name="drugName" value={formData.drugName} onChange={handleInputChange}
-                  placeholder="e.g., Amoxil Capsules"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                />
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Select Medication *</label>
+                {/* SMART DROPDOWN SELECTOR */}
+                <select 
+                  required 
+                  value={formData.drugId} 
+                  onChange={handleDropdownChange}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Choose From Active Stock --</option>
+                  {masterDrugs.map((drug) => (
+                    <option key={drug.id} value={drug.id}>{drug.displayName}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -217,52 +228,51 @@ export default function RestockPage() {
                 className="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white font-semibold py-2.5 px-4 rounded-lg text-sm shadow-sm transition-all flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Ingesting Data...
-                  </>
+                  <><Loader2 size={16} className="animate-spin" /> Ingesting Data...</>
                 ) : (
-                  <>
-                    <Plus size={16} /> Process Batch Deposit
-                  </>
+                  <><Plus size={16} /> Process Batch Deposit</>
                 )}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Right Side: Historical Ingestion Audit Trail */}
         <div className="lg:col-span-7">
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <History size={18} className="text-slate-400" /> Historical Restock Logs
+              <History size={18} className="text-slate-400" /> Recent Restock Logs
             </h2>
 
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+            <div className="flex items-center gap-2 mb-3">
+              <Search size={16} className="text-slate-400" />
               <input
-                type="text" placeholder="Search by drug, batch, or supplier..."
-                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                type="text"
+                placeholder="Search by medication name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
               />
             </div>
 
             {filteredLogs.length === 0 ? (
-              <div className="text-center text-slate-500 text-sm py-6">
-                No matching restock logs found.
-              </div>
+              <p className="text-sm text-slate-500">No logs found matching your search criteria.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-slate-700">
-                  <thead className="bg-slate-100">
-                    <tr>
-                      <th className="px-4 py-2">Date Logged</th>
-                      <th className="px-4 py-2">Drug Name</th>
-                      <th className="px-4 py-2">Batch No</th>
-                      <th className="px-4 py-2">Quantity</th>
-                      </tr>
-                      </thead>
-                      </table>
-                      </div>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {filteredLogs.map((log) => (
+                  <div key={log.id} className="border border-slate-100 rounded-lg p-3 flex justify-between items-center hover:bg-slate-50 transition">
+                    <div>
+                      <p className="font-semibold text-slate-800">{log.drugName}</p>
+                      <p className="text-xs text-slate-500">Batch: {log.batchNo} | Qty: {log.quantity} | Supplier: {log.supplier}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-400">{new Date(log.dateLogged).toLocaleDateString()}</p>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                        log.status === "Received" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                      }`}>{log.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

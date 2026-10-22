@@ -12,38 +12,28 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      try {
-        if (currentUser) {
-          // 1. Assign the authenticated user base instance
-          setUser(currentUser);
-          
-          // 2. Fetch the student/staff metadata array map from Firestore
-          const docRef = doc(db, "users", currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            setProfile(docSnap.data());
-          } else {
-            console.warn("No extra user profile document discovered in Firestore matrix.");
-            setProfile(null);
-          }
-        } else {
-          // 3. Purge states cleanly if session is dropped or logged out
-          setUser(null);
-          profile && setProfile(null);
-        }
-      } catch (error) {
-        console.error("Critical error inside authorization tracking thread:", error);
-      } finally {
-        // 4. Kill the initial global loading barrier layout flag
-        setLoading(false);
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    try {
+      if (user) {
+        // If this line fails, the catch block triggers
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        setUser({ id: user.uid, ...userDoc.data() });
+      } else {
+        setUser(null);
       }
-    });
+    } catch (error) {
+      console.error("Critical error inside authorization tracking:", error);
+      
+      // 💡 THE BREADCRUMB FIX: Force login state using the base auth credentials 
+      // even if the custom metadata database collection fails to fetch
+      setUser({ id: user.uid, email: user.email, role: "User" }); 
+    } finally {
+      setLoading(false); // 👈 Ensure loading states turn false to kill the infinite spinner!
+    }
+  });
+  return () => unsubscribe();
+}, []);
 
-    // Cleanly cancel subscription thread on layout dismount
-    return () => unsubscribe();
-  }, []);
 
   //  THE FIX: Provide the active user context values down to the app wrapper tree
   return (
