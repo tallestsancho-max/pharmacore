@@ -1,21 +1,21 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase"; // Fallback to root alias; adjust if necessary
+import { auth, db } from "@/lib/firebase"; 
 import { Pill, AlertCircle, User, IdCard, ShieldCheck, Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 
-export default function RegisterPage() {
+// 1. Move core page logic inside an inner form component
+function RegisterForm() {
   const router = useRouter();
   
-  // 1. Core State Matrix
   const [formData, setFormData] = useState({
     fullName: "",
-    institutionalId: "", // Handles either Staff ID or Matric Number dynamically
-    role: "Student Operations", // Default setup
+    institutionalId: "", 
+    role: "Student Operations", 
     email: "",
     password: ""
   });
@@ -24,26 +24,21 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const rolesList = ["Student Operations", "Staff Pharmacist", "Pharmacy Admin"];
 
-  // 2. Track text field manipulation
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 3. Determine if current selection is a student
   const isStudent = formData.role === "Student Operations";
 
-  // 4. Save credentials to Firebase Auth and Firestore Matrix
   const handleRegister = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
-      // Create secure login instance
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // Prepare payload with conditional naming structures
       const userProfile = {
         uid: user.uid,
         fullName: formData.fullName,
@@ -53,14 +48,12 @@ export default function RegisterPage() {
         status: "active"
       };
 
-      // Explicitly label the identifier based on user type
       if (isStudent) {
         userProfile.matricNumber = formData.institutionalId;
       } else {
         userProfile.staffId = formData.institutionalId;
       }
 
-      // Write layout schema to the 'users' firebase collection
       await setDoc(doc(db, "users", user.uid), userProfile);
 
       console.log("Profile provisioned successfully!");
@@ -78,7 +71,6 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 sm:p-8">
         
-        {/* Brand Banner */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
             <Pill size={26} />
@@ -95,8 +87,6 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleRegister} className="space-y-4">
-          
-          {/* Full Name Input */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Full Legal Name *</label>
             <div className="relative">
@@ -109,7 +99,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Institutional Assignment Dropdown */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Institutional Assignment *</label>
             <div className="relative">
@@ -123,7 +112,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Dynamic Institutional ID input (Swaps label based on choice above) */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">
               {isStudent ? "University Matric Number *" : "Staff Identifier Code *"}
@@ -138,7 +126,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Email Coordinates input */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Email Coordinates *</label>
             <div className="relative">
@@ -151,7 +138,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Password Input */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Secure Access Password *</label>
             <div className="relative">
@@ -164,7 +150,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Submit Action Button */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -182,7 +167,6 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {/* Navigation back link */}
         <div className="text-center mt-6 text-xs text-slate-500 border-t border-slate-100 pt-4">
           Already have an operational profile?{" "}
           <Link href="/auth/login" className="text-blue-600 hover:underline font-semibold">
@@ -192,5 +176,14 @@ export default function RegisterPage() {
 
       </div>
     </div>
+  );
+}
+
+// 2. Export main default wrapper wrapped in Suspense for static NextJS compilation
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 text-xs">Loading structure...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }
